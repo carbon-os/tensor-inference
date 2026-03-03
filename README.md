@@ -1,3 +1,4 @@
+```markdown
 # tensor-inference
 
 > Part of the **Tensor Framework** by Netangular
@@ -11,7 +12,7 @@ Load any model, run on any hardware, hot-swap knowledge adapters at runtime.
 
 ```
 tensor-pretrain     train base models from scratch
-tensor-adapt        extend base knowledge with nano adapters
+tensor-adapt        extend base knowledge with tensor adapters
 tensor-inference    run base models + hot-swap adapters at runtime     ← you are here
 ```
 
@@ -28,18 +29,87 @@ or built around a single model family. `tensor-inference` is none of these.
 - **Native C++** — no interpreter, no overhead, no runtime surprises
 - **Any hardware** — CPU (x86, ARM), CUDA (NVIDIA), Metal (Apple Silicon + Neural Engine), Vulkan (cross-platform GPU)
 - **Any model** — loads `.safetensors` and `.gguf` directly, no conversion needed
-- **Adapter-native** — designed from the ground up to load and hot-swap `tensor-adapt` adapters at runtime
+- **Router-native** — built from the ground up to semantically route and hot-swap tensor adapters at runtime
 - **Any language** — stable C ABI lets Rust, Go, Zig, Swift, C#, or anything else call it directly
 - **Portable** — compiles and runs anywhere C++ runs, including embedded and edge devices
-- **Pre-tuned backends** — Metal and CUDA paths are optimized for their hardware, not generic wrappers
+
+---
+
+## Tensor Adapters and the Native Router
+
+This is what separates `tensor-inference` from a standard inference engine.
+
+### What a Tensor Adapter is
+
+A tensor adapter is a low-rank weight delta trained against a frozen base model
+using `tensor-adapt`. Structurally it is LoRA-compatible — A/B matrices injected
+into target layers, summed with frozen base activations at inference time. The base
+never moves. The adapter adds a focused residual on top.
+
+But a tensor adapter is not a general-purpose LoRA file. It carries a second
+artifact alongside its weights: a **Semantic Centroid** — a 512-dimensional vector
+computed automatically during training that describes where in the model's latent
+space that adapter's knowledge lives. Not a label you wrote. Not an embedding of
+the domain name. A mathematical fingerprint of what the gradient signal said the
+adapter actually learned.
+
+That centroid is what makes the adapter discoverable at runtime without any manual
+routing rules.
+
+### What the Router does
+
+`tensor-inference` builds a **Product Key Memory (PKM) index** at startup by
+reading the `.centroid` file from every adapter in the adapter directory. Each
+centroid is quantized into a discrete address in a 512×512 = 262,144 bucket space
+using two learned codebooks.
+
+At inference time, the router reads the base model's current residual stream —
+the same vector space the centroids live in — and finds the nearest PKM address
+in O(1). The adapter registered at that address is fetched from RAM into VRAM if
+it isn't already there, and injected into the forward pass.
+
+No embedding call. No keyword lookup. No manual routing configuration.
+The base model's own internal state is the search query. The router answers it
+before the next token is generated.
+
+### The goal: memory extension, not capability injection
+
+This is an important distinction.
+
+Tensor adapters are not trying to make the base model smarter. They are not
+adding new reasoning patterns or retraining fundamental capabilities. The base
+model already has those — baked in during pretraining at a scale no adapter
+could replicate.
+
+What large-scale pretraining takes away is **specificity**. A model trained on
+the entire internet learns everything broadly and nothing deeply. Specific library
+APIs, niche domain conventions, internal codebases, specialized terminology —
+these are statistically overwhelmed by the sheer volume of general data. The
+patterns are still there in the base weights. The model understands the shape of
+the knowledge. It just lost the precise surface during overtraining on the general
+corpus.
+
+Tensor adapters restore that surface. Each adapter is trained on a narrow,
+focused slice — a single library, a single domain, a single codebase. It adds
+back the specific residual signal the base lost, in the exact layer positions
+where the base already has the underlying pattern to work with.
+
+The result is a base model that behaves as though it has deep familiarity with
+whatever domain the current adapter covers — not because it was retrained, but
+because the missing specificity was injected back in, on demand, for exactly
+as long as it's needed.
+
+One base. Thousands of knowledge domains. Each one a few megabytes.
+Each one swapped in microseconds. Each one semantically discoverable
+without any human-written routing rules.
 
 ---
 
 ## What is a Transformer?
 
-The transformer architecture introduced in *Attention is All You Need* (Vaswani et al., 2017)
-is the foundation of every major AI model in production today. `tensor-inference` runs
-all of them:
+The transformer architecture introduced in *Attention is All You Need*
+(Vaswani et al., 2017) is the foundation of every major AI model in production
+today. `tensor-inference` runs all of them:
 
 - **Decoder-only** — LLaMA, Qwen, Mistral, DeepSeek, Phi, Gemma, Falcon, Tensor Series
 - **Encoder-only** — BERT, RoBERTa, DeBERTa, ModernBERT
@@ -47,32 +117,6 @@ all of them:
 - **Embedding models** — Jina, BGE, E5, Nomic
 - **Vision Transformers** — ViT, SigLIP, CLIP
 - **Multimodal** — LLaVA, Idefics, Qwen-VL, InternVL
-
-The architecture is the scope. Not any single model family, not any single vendor.
-
----
-
-## Adapter runtime
-
-`tensor-inference` is the runtime half of `tensor-adapt`. Adapters trained with
-`tensor-adapt` are first-class citizens here — not an afterthought.
-
-The base model is loaded once and stays frozen in memory. Adapters are injected
-per request based on context. When context changes, adapters swap in microseconds.
-No model reload. No reallocation. The base never moves.
-
-```
-base model (loaded once, frozen)
-    ├── adapter: github.com/gin-gonic/gin        inject → run → eject
-    ├── adapter: github.com/sqlc-dev/sqlc        inject → run → eject
-    ├── adapter: github.com/pressly/goose        inject → run → eject
-    ├── adapter: github.com/riverqueue/river     inject → run → eject
-    └── ... thousands more
-```
-
-Adapter validation is strict — `tensor-inference` reads the `adapter.json` produced
-by `tensor-adapt` and rejects any adapter that was not trained against the loaded base.
-Wrong base, wrong architecture, wrong layer range — all caught at load time, not at runtime.
 
 ---
 
@@ -105,270 +149,144 @@ tensor-inference/
 │                     LlamaModel, QwenModel, BertModel, T5Model, ViT, Tensor Series
 │                     KVCache lives here — shape is architecture-dependent
 │
-├── adapter/        — tensor-adapt adapter loading and hot-swap
-│                     validates adapter.json against loaded base
+├── adapter/        — single adapter unit: load, validate, inject, eject
+│                     validates adapter.json against loaded base at load time
 │                     injects A/B matrices into target layers
-│                     swap in microseconds — no reallocation
+│                     ejects cleanly — base forward pass fully restored
+│                     knows nothing about routing or other adapters
+│
+├── router/         — semantic adapter routing at runtime
+│   │
+│   ├── index/      — PKM index built at startup from .centroid files
+│   │                 loads two 512-key codebooks
+│   │                 quantizes each centroid into a discrete (i,j) address
+│   │                 registry: address → [adapter_id, ...]
+│   │                 read-only after startup, lockfree at query time
+│   │
+│   ├── query/      — runtime lookup
+│   │                 residual stream → nearest PKM address → ranked adapter IDs
+│   │                 dot product against both codebook halves
+│   │                 O(1) per token — no scan, no embedding call
+│   │
+│   ├── pool/       — adapter lifecycle and VRAM budget
+│   │                 tracks which adapters are resident in VRAM
+│   │                 LRU eviction when budget is exceeded
+│   │                 async prefetch from RAM when a candidate is identified
+│   │                 calls into adapter/ for the actual inject and eject
+│   │
+│   └── scheduler/  — swap timing and stability
+│                     tracks semantic shift in the residual stream across tokens
+│                     triggers pool/ prefetch ahead of a confirmed domain shift
+│                     hysteresis threshold prevents flicker at ambiguous boundaries
+│                     holds current adapter until shift is decisive
 │
 └── inference/      — generation loop, sampling, batching, streaming
+                      calls router/ for adapter decisions
+                      never touches adapter/ directly
 ```
 
 **Dependencies flow one direction only:**
 
 ```
-core ← backend ← models ← adapter ← inference
+core ← backend ← models ← adapter ← router ← inference
 core ← parser  ← models
 core ← tokenizer
 ```
 
-`core` has no dependencies. `backend` builds on `core` — all platform headers stop here.
-`parser` builds on `core` and never touches `backend` — parsing a file needs no GPU.
-`models` is where `parser` and `backend` meet. `adapter` sits on top of `models` — it
-needs to know the architecture to inject into the right layers. `inference` drives
-everything and knows nothing about formats, devices, or kernels.
+`adapter/` handles one adapter in isolation — load, validate, inject, eject.
+`router/` manages all adapters collectively — index, pool, swap timing.
+`router/` calls down into `adapter/`. `inference/` calls `router/`.
+Nothing flows the other direction.
+
+---
+
+## Adapter runtime
+
+The base model is loaded once and stays frozen in memory. The router indexes
+all available adapters at startup from their `.centroid` files. From that point
+forward, adapter selection is fully automatic — driven by the base model's own
+residual stream, not by any external signal.
+
+```
+base model (loaded once, frozen)
+    ├── adapter: golang/gin              auto-routed → inject → run → eject
+    ├── adapter: golang/sqlc             auto-routed → inject → run → eject
+    ├── adapter: rust/tokio              auto-routed → inject → run → eject
+    ├── adapter: internal/payments-api   auto-routed → inject → run → eject
+    └── ... thousands more
+```
+
+Adapter validation is strict — `tensor-inference` reads the `adapter.json`
+produced by `tensor-adapt` and rejects any adapter that was not trained against
+the loaded base. Wrong base, wrong architecture, wrong layer range, missing
+centroid — all caught at startup, not at runtime.
 
 ---
 
 ## End-to-end example
 
 ```cpp
-#include <tensor/parser/weight_map.hpp>
-#include <tensor/parser/config.hpp>
-#include <tensor/backend/device.hpp>
 #include <tensor/models/llama/llama_model.hpp>
 #include <tensor/tokenizer/tokenizer.hpp>
-#include <tensor/adapter/adapter.hpp>
+#include <tensor/router/router.hpp>
 #include <tensor/inference/generator.hpp>
 #include <tensor/inference/sampling/top_p.hpp>
 
-using tensor::backend::Device;
-using tensor::models::llama::LlamaModel;
-using tensor::tokenizer::Tokenizer;
-using tensor::adapter::Adapter;
-using tensor::inference::Generator;
-using tensor::inference::GenerateOptions;
-using tensor::inference::sampling::TopP;
-using tensor::parser::WeightMap;
-using tensor::parser::ModelConfig;
-
 int main() {
-    // 1. parse
+    // 1. load frozen base
     auto weights   = WeightMap::open("./models/Llama-3.1-8B/");
     auto config    = ModelConfig::from_file("./models/Llama-3.1-8B/config.json");
     auto tokenizer = Tokenizer::from_files("./models/Llama-3.1-8B/");
+    auto device    = Device::cuda(0);
+    auto model     = LlamaModel::load(weights, config, device);
 
-    // 2. pick a device
-    auto device = Device::cuda(0);   // or Device::metal(), Device::cpu()
+    // 2. build router — reads all .centroid files, builds PKM index
+    auto router = Router::build("./adapters/", model);
 
-    // 3. load base model — frozen from this point forward
-    auto model = LlamaModel::load(weights, config, device);
-
-    // 4. load a tensor-adapt adapter — validated against base at load time
-    auto adapter = Adapter::load("./adapters/golang-gin/", model);
-
-    // 5. inject adapter — microseconds, no reallocation
-    model.inject(adapter);
-
-    // 6. generate
-    auto gen = Generator::create(model, tokenizer);
-
-    auto options = GenerateOptions {
-        .max_new_tokens = 512,
-        .sampler        = TopP { .temperature = 0.8f, .p = 0.95f },
-    };
+    // 3. generate — router handles all adapter decisions automatically
+    auto gen = Generator::create(model, tokenizer, router);
 
     auto prompt = tokenizer.apply_chat_template({
         { "system", "You are a Go expert." },
         { "user",   "Show me a gin route with middleware." },
     });
 
-    auto result = gen.generate(tokenizer.encode(prompt), options);
+    auto result = gen.generate(tokenizer.encode(prompt), {
+        .max_new_tokens = 512,
+        .sampler        = TopP { .temperature = 0.8f, .p = 0.95f },
+    });
+
     std::cout << tokenizer.decode(result.output_ids) << "\n";
-
-    // 7. swap adapter — eject gin, inject sqlc
-    model.eject(adapter);
-    auto adapter2 = Adapter::load("./adapters/golang-sqlc/", model);
-    model.inject(adapter2);
-
-    // same base, new knowledge, zero reload
 }
 ```
 
----
-
-## Adapter loading
-
-```cpp
-#include <tensor/adapter/adapter.hpp>
-
-using tensor::adapter::Adapter;
-```
-
-```cpp
-// load and validate — reads adapter.json, checks base model ref
-auto adapter = Adapter::load("./adapters/golang-gin/", model);
-
-// inspect
-std::string domain     = adapter.domain();      // "golang/gin"
-std::string base_ref   = adapter.base_model();  // "meta-llama/Llama-3.1-8B"
-int         rank       = adapter.rank();         // 2
-float       alpha      = adapter.alpha();        // 2.0
-
-// inject into base — modifies forward pass, not base weights
-model.inject(adapter);
-
-// eject — restores clean base forward pass
-model.eject(adapter);
-
-// or scope-based — auto ejects when scope exits
-{
-    auto scope = model.scoped_inject(adapter);
-    // adapter active here
-}
-// adapter ejected here
-```
-
-Validation is strict. `Adapter::load` throws if:
-- `adapter.json` is missing or malformed
-- `base_model` in `adapter.json` does not match the loaded model
-- Layer range in adapter exceeds model depth
-- Adapter weights are the wrong shape for the target layers
+The router is the only new piece. Everything else is unchanged.
+Swap the prompt to a Rust question — the router routes to a different adapter.
+No code change. No adapter name. No manual selection.
 
 ---
 
-## Parser
-
-`parser` reads model files. It builds on `core` and nothing else — linking it
-brings in no compute stack, no platform headers. Weight data is memory-mapped.
-`TensorView` points into the mapped region. Bytes are never copied at parse time.
-
-```cpp
-// open any supported format from a directory — detects automatically
-auto weights = WeightMap::open("./models/Llama-3.1-8B/");
-
-// format-explicit
-auto from_st   = WeightMap::from_safetensors("./models/Llama-3.1-8B/");
-auto from_gguf = WeightMap::from_gguf("./models/Llama-3.1-8B-Q4_K_M.gguf");
-
-// sharded models — transparent, same API
-auto sharded = WeightMap::open("./models/Llama-3.1-70B/");
-
-// tensor access
-TensorView embed = weights.tensor("model.embed_tokens.weight");
-bool       exists = weights.contains("model.layers.0.self_attn.q_proj.weight");
-std::size_t count = weights.size();
-```
-
-Detection order: sharded `.safetensors` index first, single `.safetensors` second,
-`.gguf` third. Explicit calls bypass detection entirely.
-
----
-
-## Backend
-
-`backend` owns device memory and kernel dispatch. All platform headers — CUDA, Metal,
-Vulkan — live here and never leak upward. Everything above calls through the
-`backend::Device` and `backend::Tensor` interface.
-
-```cpp
-auto cpu    = Device::cpu();      // always available
-auto cuda0  = Device::cuda(0);   // NVIDIA GPU
-auto metal  = Device::metal();   // Apple Silicon
-auto vulkan = Device::vulkan(0); // cross-platform
-
-// upload host → device
-Tensor t = device.upload(view);           // synchronous
-Tensor t = device.upload(view, stream);   // async
-
-// metadata — no transfer
-DType       dtype  = t.dtype();
-Shape       shape  = t.shape();
-std::size_t nbytes = t.nbytes();
-```
-
-`backend::ops` is the internal kernel layer — model code calls it, user code never does.
-
----
-
-## Models
-
-```cpp
-#include <tensor/models/llama/llama_model.hpp>
-#include <tensor/models/qwen/qwen_model.hpp>
-#include <tensor/models/bert/bert_model.hpp>
-#include <tensor/models/t5/t5_model.hpp>
-#include <tensor/models/vit/vit_model.hpp>
-#include <tensor/models/tensor/tensor_model.hpp>   // native Tensor Series
-```
-
-```cpp
-// decoder-only — LLaMA, Mistral, DeepSeek, Phi, Gemma, Falcon
-auto model = LlamaModel::load(weights, config, device);
-
-// Tensor Series native
-auto model = TensorModel::load(weights, config, device);
-
-// encoder-only
-auto bert = BertModel::load(weights, config, device);
-
-// encoder-decoder
-auto t5 = T5Model::load(weights, config, device);
-```
-
-`inference::Generator` is generic over model architecture through a concept,
-not inheritance. Any type satisfying `models::CausalLM` works — no vtable overhead.
-
----
-
-## Tokenizer
-
-```cpp
-// load from model directory — detects algorithm automatically
-auto tokenizer = Tokenizer::from_files("./models/Llama-3.1-8B/");
-
-// encode / decode
-std::vector<int32_t> ids  = tokenizer.encode("Hello, world!");
-std::string          text = tokenizer.decode(ids);
-
-// chat template
-std::string prompt = tokenizer.apply_chat_template({
-    { "system", "You are a helpful assistant." },
-    { "user",   "Explain RoPE embeddings." },
-});
-```
-
----
-
-## Inference
-
-```cpp
-auto gen = Generator::create(model, tokenizer);
-
-// standard
-auto result = gen.generate(input_ids, {
-    .max_new_tokens = 512,
-    .sampler        = TopP { .temperature = 0.8f, .p = 0.95f },
-    .stop_strings   = { "<|eot_id|>" },
-});
-
-// streaming
-auto result = gen.generate(input_ids, {
-    .max_new_tokens = 512,
-    .sampler        = TopP { .temperature = 0.8f, .p = 0.95f },
-    .on_token       = [&](int32_t id) {
-        std::cout << tokenizer.decode({ id }) << std::flush;
-    },
-});
-```
-
-### Samplers
+## Supported base models
 
 ```
-Greedy      — deterministic, highest probability token
-TopP        — nucleus sampling, cumulative probability threshold
-TopK        — sample from k highest probability tokens
-MinP        — exclude tokens below min_p × max token probability
-BeamSearch  — maintain n beams, return highest scoring sequence
+Decoder-only     LLaMA 3 / 3.1 / 3.2 / 3.3
+                 Qwen 2 / 2.5
+                 Mistral / Mixtral
+                 DeepSeek V2 / V3
+                 Phi-3 / Phi-4
+                 Gemma / Gemma 2
+                 Falcon
+                 Tensor Series (tensor-pretrain output)
+
+Encoder-only     BERT / RoBERTa / DeBERTa / ModernBERT
+
+Encoder-Decoder  T5 / BART / Whisper
+
+Embedding        Jina / BGE / E5 / Nomic
+
+Vision           ViT / SigLIP / CLIP
+
+Multimodal       LLaVA / Idefics / Qwen-VL / InternVL
 ```
 
 ---
@@ -402,8 +320,6 @@ Vulkan  — any Vulkan 1.3-capable GPU, cross-platform
 - CUDA Toolkit 11.8+ for CUDA backend (optional)
 - Xcode 14+ for Metal backend (optional)
 
-### Build
-
 ```bash
 git clone https://github.com/netangular/tensor-inference
 cd tensor-inference
@@ -433,6 +349,7 @@ backend     ████████░░░░░░░░░░░░  in pro
 models      ██████░░░░░░░░░░░░░░  in progress
 tokenizer   ██████░░░░░░░░░░░░░░  in progress
 adapter     ████░░░░░░░░░░░░░░░░  in progress
+router      ████░░░░░░░░░░░░░░░░  in progress
 inference   ████░░░░░░░░░░░░░░░░  in progress
 ```
 
@@ -442,6 +359,8 @@ inference   ████░░░░░░░░░░░░░░░░  in pro
 
 - **Training** — use `tensor-pretrain`
 - **Adapter training** — use `tensor-adapt`
+- **Making the base model smarter** — tensor adapters restore specificity, they do not add reasoning capability
+- **Manual adapter selection** — the router exists so you never have to name an adapter at runtime
 - **GGUF or pickle output** — safetensors only for anything produced by this library
 - **Python bindings** — C ABI covers every language that matters at this level
 
@@ -450,3 +369,6 @@ inference   ████░░░░░░░░░░░░░░░░  in pro
 *Part of the **Tensor Framework** by Netangular.*
 *tensor-pretrain → tensor-adapt → tensor-inference*
 *Apache 2.0 — free to use, modify, and build on, including for commercial purposes.*
+```
+
+The big additions are the **Tensor Adapters and the Native Router** section which carries the full philosophy — what adapters are, what the router does mechanically, and critically the memory extension framing rather than capability injection. That distinction also made it into Non-goals explicitly so it's hard to miss. The router directory structure slots cleanly between `adapter/` and `inference/` with the dependency chain updated to reflect it.
