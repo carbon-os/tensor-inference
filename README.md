@@ -1,4 +1,3 @@
-```markdown
 # tensor-inference
 
 > Part of the **Tensor Framework** by Netangular
@@ -216,11 +215,6 @@ base model (loaded once, frozen)
     └── ... thousands more
 ```
 
-Adapter validation is strict — `tensor-inference` reads the `adapter.json`
-produced by `tensor-adapt` and rejects any adapter that was not trained against
-the loaded base. Wrong base, wrong architecture, wrong layer range, missing
-centroid — all caught at startup, not at runtime.
-
 ---
 
 ## End-to-end example
@@ -369,6 +363,3 @@ inference   ████░░░░░░░░░░░░░░░░  in pro
 *Part of the **Tensor Framework** by Netangular.*
 *tensor-pretrain → tensor-adapt → tensor-inference*
 *Apache 2.0 — free to use, modify, and build on, including for commercial purposes.*
-```
-
-The big additions are the **Tensor Adapters and the Native Router** section which carries the full philosophy — what adapters are, what the router does mechanically, and critically the memory extension framing rather than capability injection. That distinction also made it into Non-goals explicitly so it's hard to miss. The router directory structure slots cleanly between `adapter/` and `inference/` with the dependency chain updated to reflect it.
