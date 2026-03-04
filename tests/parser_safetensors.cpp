@@ -158,7 +158,7 @@ static void dump_metadata(const SafeTensors& st) {
     try {
         (void)st.metadata("__no_such_key__");
         std::cout << "  ERROR: expected MetaNotFound, got no exception\n";
-    } catch (const transformers::parser::MetaNotFound& e) {
+    } catch (const tensor::parser::MetaNotFound& e) {
         std::cout << "  caught MetaNotFound (expected): " << e.what() << "\n";
     }
 }
@@ -251,7 +251,7 @@ static void dump_tensor_info(const SafeTensors& st) {
     try {
         (void)st.info("__no_such_tensor__");
         std::cout << "  ERROR: expected TensorNotFound, got no exception\n";
-    } catch (const transformers::parser::TensorNotFound& e) {
+    } catch (const tensor::parser::TensorNotFound& e) {
         std::cout << "  caught TensorNotFound (expected): " << e.what() << "\n";
     }
 }
@@ -355,7 +355,7 @@ static void dump_tensor_views(const SafeTensors& st) {
         bool tested = false;
         for (const auto& n : sorted) {
             TensorView view = st.tensor(n);
-            if (transformers::core::dtype_size(view.dtype) == 2) {
+            if (tensor::core::dtype_size(view.dtype) == 2) {
                 try {
                     (void)view.as<float>();
                     std::cout << "  ERROR: expected invalid_argument, got no exception\n";
@@ -377,7 +377,7 @@ static void dump_tensor_views(const SafeTensors& st) {
     try {
         (void)st.tensor("__no_such_tensor__");
         std::cout << "  ERROR: expected TensorNotFound, got no exception\n";
-    } catch (const transformers::parser::TensorNotFound& e) {
+    } catch (const tensor::parser::TensorNotFound& e) {
         std::cout << "  caught TensorNotFound (expected): " << e.what() << "\n";
     }
 }
@@ -537,7 +537,7 @@ int main(int argc, char** argv) {
     }
 
     divider('=');
-    std::cout << "  libtransformers -- SafeTensors parser\n";
+    std::cout << "  tensor -- SafeTensors parser\n";
     divider('=');
 
     SafeTensors st = [&]() -> SafeTensors {
