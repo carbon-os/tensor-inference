@@ -1,6 +1,5 @@
 cmake_minimum_required(VERSION 3.21)
 
-# Project name updated to tensor_inference
 project(tensor_inference VERSION 0.1.0 LANGUAGES CXX CUDA)
 
 set(CMAKE_CXX_STANDARD 20)
@@ -11,7 +10,6 @@ set(CMAKE_CUDA_STANDARD_REQUIRED ON)
 
 # ─────────────────────────────────────────────────────────────
 #  System / vcpkg-managed dependencies
-#  Expects CMAKE_TOOLCHAIN_FILE to be passed or VCPKG_ROOT set
 # ─────────────────────────────────────────────────────────────
 
 find_package(OpenSSL        REQUIRED)
@@ -97,6 +95,29 @@ set_target_properties(tensor_backend PROPERTIES
 )
 
 # ─────────────────────────────────────────────────────────────
+#  tensor::adapter
+#  Depends only on parser + backend — no model knowledge here.
+#  AdapterLoader reads adapter.json + adapter.safetensors and
+#  produces AdapterWeights ready to hand to QwenAdapterModel.
+# ─────────────────────────────────────────────────────────────
+
+add_library(tensor_adapter STATIC
+    src/adapter/adapter_loader.cpp
+)
+add_library(tensor::adapter ALIAS tensor_adapter)
+target_include_directories(tensor_adapter
+    PUBLIC
+        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+        $<INSTALL_INTERFACE:include>
+)
+target_link_libraries(tensor_adapter
+    PUBLIC  tensor::core
+    PUBLIC  tensor::parser
+    PUBLIC  tensor::backend
+    PRIVATE nlohmann_json::nlohmann_json
+)
+
+# ─────────────────────────────────────────────────────────────
 #  tensor::models
 # ─────────────────────────────────────────────────────────────
 
@@ -105,6 +126,7 @@ add_library(tensor_models STATIC
     src/models/llama/llama_config.cpp
     src/models/llama/llama_model.cpp
     src/models/qwen/qwen_model.cpp
+    src/models/qwen/qwen_adapter_model.cpp
     src/models/gemma/gemma_model.cpp
     src/models/mistral/mistral_model.cpp
 )
@@ -118,6 +140,7 @@ target_link_libraries(tensor_models
     PUBLIC  tensor::core
     PUBLIC  tensor::parser
     PUBLIC  tensor::backend
+    PUBLIC  tensor::adapter
     PRIVATE nlohmann_json::nlohmann_json
 )
 
@@ -168,9 +191,11 @@ target_link_libraries(tensor_inference_lib
 option(TENSOR_BUILD_TOOLS "Build developer tools" OFF)
 
 if(TENSOR_BUILD_TOOLS)
-    # Helper macro for consistency
+
+    # Convenience macro — all tools need the same set of libs
     macro(link_tensor_deps target_name)
         target_link_libraries(${target_name} PRIVATE
+            tensor::adapter
             tensor::parser
             tensor::backend
             tensor::models
@@ -191,9 +216,13 @@ if(TENSOR_BUILD_TOOLS)
     add_executable(run_qwen tools/run_qwen.cpp)
     link_tensor_deps(run_qwen)
 
+    add_executable(run_qwen_adapter tools/run_qwen_adapter.cpp)
+    link_tensor_deps(run_qwen_adapter)
+
     add_executable(run_gemma tools/run_gemma.cpp)
     link_tensor_deps(run_gemma)
 
     add_executable(run_mistral tools/run_mistral.cpp)
     link_tensor_deps(run_mistral)
+
 endif()

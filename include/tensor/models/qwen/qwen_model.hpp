@@ -20,7 +20,7 @@ struct QwenConfig {
     float       rms_norm_eps            = 1e-6f;
     float       rope_theta              = 1000000.0f;
     int32_t     eos_token_id            = 151645;
-    
+
     std::size_t head_dim() const { return hidden_size / num_attention_heads; }
 
     static QwenConfig from_model_config(const parser::ModelConfig& cfg) {
@@ -56,9 +56,9 @@ struct QwenLayer {
 
 class QwenModel {
 public:
-    static QwenModel load(const parser::WeightMap& weights,
+    static QwenModel load(const parser::WeightMap&   weights,
                           const parser::ModelConfig& config,
-                          const backend::Device& device);
+                          const backend::Device&     device);
 
     backend::Tensor forward(const std::vector<int32_t>& input_ids,
                             KVCache& cache);
@@ -68,18 +68,20 @@ public:
     std::size_t vocab_size()   const noexcept { return cfg_.vocab_size; }
     int32_t     eos_token_id() const noexcept { return cfg_.eos_token_id; }
 
-private:
-    backend::Tensor layer_forward(const backend::Tensor& hidden,
-                                  QwenLayer& layer,
-                                  KVCache::LayerCache& lc,
-                                  int seq_offset);
-
+protected:
+    // ── accessible to QwenAdapterModel ───────────────────────
     QwenConfig             cfg_;
     backend::Device        device_ = backend::Device::cpu();
     backend::Tensor        embed_tokens_;
     backend::Tensor        norm_;
     backend::Tensor        lm_head_;
     std::vector<QwenLayer> layers_;
+
+    // virtual so QwenAdapterModel can override with LoRA-injected version
+    virtual backend::Tensor layer_forward(const backend::Tensor& hidden,
+                                          QwenLayer&             layer,
+                                          KVCache::LayerCache&   lc,
+                                          int                    seq_offset);
 };
 
 } // namespace tensor::models::qwen
