@@ -113,7 +113,7 @@ Run a single prompt using the cached path:
     --temperature 0.8
 
 ./build/run_qwen ~/.cache/models/Qwen/Qwen2.5-Coder-1.5B-Instruct \
-    --prompt "Write a C++ hello world." \
+    --prompt "Write a rust tcp server" \
     --max-tokens 200 \
     --temperature 0.8
 
