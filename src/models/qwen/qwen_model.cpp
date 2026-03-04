@@ -1,13 +1,13 @@
-#include <transformers/models/qwen/qwen_model.hpp>
-#include <transformers/backend/ops.hpp>
+#include <tensor/models/qwen/qwen_model.hpp>
+#include <tensor/backend/ops.hpp>
 
 #include <cuda_runtime.h>
 
 #include <iostream>
 
-namespace ops = transformers::backend::ops;
+namespace ops = tensor::backend::ops;
 
-namespace transformers::models::qwen {
+namespace tensor::models::qwen {
 
 static backend::Tensor load_weight(const parser::WeightMap& wm,
                                    const std::string& name,
@@ -145,4 +145,4 @@ backend::Tensor QwenModel::forward(const std::vector<int32_t>& input_ids, KVCach
     return logits;
 }
 
-} // namespace transformers::models::qwen
+} // namespace tensor::models::qwen

@@ -1,5 +1,5 @@
-#include <transformers/parser/config.hpp>
-#include <transformers/parser/errors.hpp>
+#include <tensor/parser/config.hpp>
+#include <tensor/parser/errors.hpp>
 
 #include <nlohmann/json.hpp>
 
@@ -11,7 +11,7 @@
 namespace fs = std::filesystem;
 using json   = nlohmann::json;
 
-namespace transformers::parser {
+namespace tensor::parser {
 
 // ─────────────────────────────────────────────────────────────
 //  Helpers
@@ -262,4 +262,4 @@ bool TokenizerConfig::add_eos_token() const {
     return false;
 }
 
-} // namespace transformers::parser
+} // namespace tensor::parser

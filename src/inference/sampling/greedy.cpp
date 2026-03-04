@@ -1,4 +1,4 @@
-#include <transformers/inference/sampling/greedy.hpp>
+#include <tensor/inference/sampling/greedy.hpp>
 
 #include <cuda_runtime.h>
 
@@ -6,7 +6,7 @@
 #include <stdexcept>
 #include <vector>
 
-namespace transformers::inference::sampling {
+namespace tensor::inference::sampling {
 
 int32_t Greedy::sample(const backend::Tensor& logits) const {
     // Bring the last token's logits to host.
@@ -35,4 +35,4 @@ int32_t Greedy::sample(const backend::Tensor& logits) const {
     );
 }
 
-} // namespace transformers::inference::sampling
+} // namespace tensor::inference::sampling

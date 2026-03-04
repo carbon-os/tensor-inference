@@ -1,6 +1,6 @@
-#include <transformers/backend/ops.hpp>
-#include <transformers/backend/tensor.hpp>
-#include <transformers/core/dtype.hpp>
+#include <tensor/backend/ops.hpp>
+#include <tensor/backend/tensor.hpp>
+#include <tensor/core/dtype.hpp>
 
 #include <cublas_v2.h>
 #include <cuda_bf16.h>
@@ -10,7 +10,7 @@
 #include <stdexcept>
 #include <vector>
 
-namespace transformers::backend::ops {
+namespace tensor::backend::ops {
 
 // ─────────────────────────────────────────────────────────────
 //  Utilities
@@ -787,4 +787,4 @@ Tensor mul(const Tensor& x, float scalar) {
     return out;
 }
 
-} // namespace transformers::backend::ops
+} // namespace tensor::backend::ops

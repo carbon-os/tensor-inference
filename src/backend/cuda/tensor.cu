@@ -1,12 +1,12 @@
-#include <transformers/backend/tensor.hpp>
-#include <transformers/core/dtype.hpp>
+#include <tensor/backend/tensor.hpp>
+#include <tensor/core/dtype.hpp>
 
 #include <cuda_runtime.h>
 
 #include <cstring>
 #include <stdexcept>
 
-namespace transformers::backend {
+namespace tensor::backend {
 
 // ── helpers ──────────────────────────────────────────────────
 
@@ -156,4 +156,4 @@ std::vector<int32_t> Tensor::to_host_i32() const {
     return out;
 }
 
-} // namespace transformers::backend
+} // namespace tensor::backend

@@ -24,7 +24,7 @@
  *             Authorization header.
  */
 
-#include <transformers/resolver/resolver.hpp>
+#include <tensor/resolver/resolver.hpp>
 
 #include <curl/curl.h>
 #include <nlohmann/json.hpp>
@@ -37,7 +37,7 @@
 #include <string>
 #include <vector>
 
-namespace transformers::resolver {
+namespace tensor::resolver {
 
 std::optional<std::filesystem::path> Resolver::custom_cache_dir_ = std::nullopt;
 
@@ -484,4 +484,4 @@ std::filesystem::path Resolver::resolve_hf(const std::string& repo_id,
     return model_dir;
 }
 
-} // namespace transformers::resolver
+} // namespace tensor::resolver

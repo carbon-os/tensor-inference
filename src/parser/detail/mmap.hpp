@@ -4,7 +4,7 @@
 // Provides a RAII memory-mapped file that works on
 // POSIX (Linux, macOS) and Windows.
 
-#include <transformers/parser/errors.hpp>
+#include <tensor/parser/errors.hpp>
 
 #include <cstddef>
 #include <string>
@@ -23,7 +23,7 @@
 #   include <unistd.h>
 #endif
 
-namespace transformers::parser::detail {
+namespace tensor::parser::detail {
 
 // ─────────────────────────────────────────────────────────────
 //  MmapFile — read-only memory-mapped file, move-only.

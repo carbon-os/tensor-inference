@@ -1,5 +1,5 @@
-#include <transformers/tokenizer/tokenizer.hpp>
-#include <transformers/parser/errors.hpp>
+#include <tensor/tokenizer/tokenizer.hpp>
+#include <tensor/parser/errors.hpp>
 
 #include <nlohmann/json.hpp>
 
@@ -19,9 +19,9 @@
 
 namespace fs = std::filesystem;
 using json   = nlohmann::json;
-using transformers::parser::ParseError;
+using tensor::parser::ParseError;
 
-namespace transformers::tokenizer {
+namespace tensor::tokenizer {
 
 // ─────────────────────────────────────────────────────────────
 //  UTF-8 helpers
@@ -476,4 +476,4 @@ int32_t Tokenizer::token_to_id(const std::string& token) const {
     return (it != impl_->vocab.end()) ? it->second : -1;
 }
 
-} // namespace transformers::tokenizer
+} // namespace tensor::tokenizer

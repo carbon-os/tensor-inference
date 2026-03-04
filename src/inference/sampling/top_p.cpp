@@ -1,4 +1,4 @@
-#include <transformers/inference/sampling/top_p.hpp>
+#include <tensor/inference/sampling/top_p.hpp>
 
 #include <cuda_runtime.h>
 
@@ -10,7 +10,7 @@
 #include <stdexcept>
 #include <vector>
 
-namespace transformers::inference::sampling {
+namespace tensor::inference::sampling {
 
 // Shared helper: copy last token logits to host as float32
 static std::vector<float> last_logits_to_host(const backend::Tensor& logits) {
@@ -135,4 +135,4 @@ int32_t TopK::sample(const backend::Tensor& logits) const {
     return indices[0];
 }
 
-} // namespace transformers::inference::sampling
+} // namespace tensor::inference::sampling

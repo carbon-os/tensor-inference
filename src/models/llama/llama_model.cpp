@@ -1,6 +1,6 @@
-#include <transformers/models/llama/llama_model.hpp>
-#include <transformers/backend/ops.hpp>
-#include <transformers/parser/errors.hpp>
+#include <tensor/models/llama/llama_model.hpp>
+#include <tensor/backend/ops.hpp>
+#include <tensor/parser/errors.hpp>
 
 #include <cuda_runtime.h>
 
@@ -8,10 +8,10 @@
 #include <stdexcept>
 #include <string>
 
-namespace ops = transformers::backend::ops;
-using transformers::parser::TensorNotFound;
+namespace ops = tensor::backend::ops;
+using tensor::parser::TensorNotFound;
 
-namespace transformers::models::llama {
+namespace tensor::models::llama {
 
 // ─────────────────────────────────────────────────────────────
 //  Weight loading helpers
@@ -237,4 +237,4 @@ Tensor LlamaModel::forward(const std::vector<int32_t>& input_ids,
     return logits;
 }
 
-} // namespace transformers::models::llama
+} // namespace tensor::models::llama

@@ -1,12 +1,12 @@
-#include <transformers/backend/device.hpp>
-#include <transformers/parser/errors.hpp>
+#include <tensor/backend/device.hpp>
+#include <tensor/parser/errors.hpp>
 
 #include <cuda_runtime.h>
 
 #include <sstream>
 #include <stdexcept>
 
-namespace transformers::backend {
+namespace tensor::backend {
 
 Device Device::cpu() {
     return Device(DeviceType::CPU, 0, "CPU", 0);
@@ -42,4 +42,4 @@ void Device::make_current() const {
     }
 }
 
-} // namespace transformers::backend
+} // namespace tensor::backend

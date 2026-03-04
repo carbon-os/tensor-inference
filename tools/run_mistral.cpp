@@ -5,14 +5,14 @@
 //    ./run_mistral <model_dir> [options]
 // ─────────────────────────────────────────────────────────────
 
-#include <transformers/backend/device.hpp>
-#include <transformers/inference/generator.hpp>
-#include <transformers/inference/sampling/greedy.hpp>
-#include <transformers/inference/sampling/top_p.hpp>
-#include <transformers/models/mistral/mistral_model.hpp>
-#include <transformers/parser/config.hpp>
-#include <transformers/parser/weight_map.hpp>
-#include <transformers/tokenizer/tokenizer.hpp>
+#include <tensor/backend/device.hpp>
+#include <tensor/inference/generator.hpp>
+#include <tensor/inference/sampling/greedy.hpp>
+#include <tensor/inference/sampling/top_p.hpp>
+#include <tensor/models/mistral/mistral_model.hpp>
+#include <tensor/parser/config.hpp>
+#include <tensor/parser/weight_map.hpp>
+#include <tensor/tokenizer/tokenizer.hpp>
 
 #include <chrono>
 #include <cstdlib>
@@ -21,7 +21,7 @@
 #include <stdexcept>
 #include <string>
 
-using namespace transformers;
+using namespace tensor;
 
 struct Args {
     std::string model_dir;

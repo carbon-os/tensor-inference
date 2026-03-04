@@ -1,6 +1,6 @@
-#include <transformers/models/llama/llama_config.hpp>
+#include <tensor/models/llama/llama_config.hpp>
 
-namespace transformers::models::llama {
+namespace tensor::models::llama {
 
 LlamaConfig LlamaConfig::from_model_config(const parser::ModelConfig& cfg) {
     LlamaConfig c;
@@ -32,4 +32,4 @@ LlamaConfig LlamaConfig::from_model_config(const parser::ModelConfig& cfg) {
     return c;
 }
 
-} // namespace transformers::models::llama
+} // namespace tensor::models::llama

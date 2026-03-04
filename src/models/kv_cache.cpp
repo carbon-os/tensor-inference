@@ -1,6 +1,6 @@
-#include <transformers/models/kv_cache.hpp>
+#include <tensor/models/kv_cache.hpp>
 
-namespace transformers::models {
+namespace tensor::models {
 
 KVCache::KVCache(std::size_t n_layers,
                  std::size_t n_kv_heads,
@@ -20,4 +20,4 @@ KVCache::KVCache(std::size_t n_layers,
     }
 }
 
-} // namespace transformers::models
+} // namespace tensor::models

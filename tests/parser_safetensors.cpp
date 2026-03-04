@@ -10,11 +10,11 @@
 //  so every code path is visibly exercised.
 // ─────────────────────────────────────────────────────────────
 
-#include <transformers/core/dtype.hpp>
-#include <transformers/core/shape.hpp>
-#include <transformers/core/tensor_view.hpp>
-#include <transformers/parser/errors.hpp>
-#include <transformers/parser/safetensors.hpp>
+#include <tensor/core/dtype.hpp>
+#include <tensor/core/shape.hpp>
+#include <tensor/core/tensor_view.hpp>
+#include <tensor/parser/errors.hpp>
+#include <tensor/parser/safetensors.hpp>
 
 #include <algorithm>
 #include <filesystem>
@@ -27,15 +27,15 @@
 
 namespace fs = std::filesystem;
 
-using transformers::core::DType;
-using transformers::core::Shape;
-using transformers::core::TensorView;
-using transformers::parser::FormatError;
-using transformers::parser::MetaNotFound;
-using transformers::parser::ParseError;
-using transformers::parser::SafeTensors;
-using transformers::parser::TensorInfo;
-using transformers::parser::TensorNotFound;
+using tensor::core::DType;
+using tensor::core::Shape;
+using tensor::core::TensorView;
+using tensor::parser::FormatError;
+using tensor::parser::MetaNotFound;
+using tensor::parser::ParseError;
+using tensor::parser::SafeTensors;
+using tensor::parser::TensorInfo;
+using tensor::parser::TensorNotFound;
 
 constexpr std::size_t kMaxPrintedItems = 10;
 

@@ -1,6 +1,6 @@
-#include <transformers/parser/weight_map.hpp>
-#include <transformers/parser/safetensors.hpp>
-#include <transformers/parser/errors.hpp>
+#include <tensor/parser/weight_map.hpp>
+#include <tensor/parser/safetensors.hpp>
+#include <tensor/parser/errors.hpp>
 
 #include <algorithm>
 #include <filesystem>
@@ -10,7 +10,7 @@
 
 namespace fs = std::filesystem;
 
-namespace transformers::parser {
+namespace tensor::parser {
 
 struct WeightMap::Impl {
     // Currently SafeTensors only. GGUF will be a second variant here.
@@ -105,4 +105,4 @@ std::unordered_map<std::string, TensorView> WeightMap::tensors() const {
     return impl_->st.tensors();
 }
 
-} // namespace transformers::parser
+} // namespace tensor::parser

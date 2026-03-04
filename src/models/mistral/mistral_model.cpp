@@ -1,15 +1,15 @@
-#include <transformers/models/mistral/mistral_model.hpp>
-#include <transformers/backend/ops.hpp>
+#include <tensor/models/mistral/mistral_model.hpp>
+#include <tensor/backend/ops.hpp>
 
 #include <nlohmann/json.hpp>
 #include <cuda_runtime.h>
 #include <fstream>
 #include <iostream>
 
-namespace ops = transformers::backend::ops;
+namespace ops = tensor::backend::ops;
 using json = nlohmann::json;
 
-namespace transformers::models::mistral {
+namespace tensor::models::mistral {
 
 static backend::Tensor load_w(const parser::WeightMap& wm, const std::string& name, const backend::Device& device) {
     return backend::Tensor::from_view(wm.tensor(name), device);
@@ -177,4 +177,4 @@ backend::Tensor MistralModel::forward(const std::vector<int32_t>& input_ids, KVC
     return logits;
 }
 
-} // namespace transformers::models::mistral
+} // namespace tensor::models::mistral

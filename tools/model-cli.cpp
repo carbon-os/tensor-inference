@@ -1,10 +1,10 @@
-#include <transformers/resolver/resolver.hpp>
+#include <tensor/resolver/resolver.hpp>
 #include <iostream>
 #include <string>
 #include <cstdlib>
 #include <optional>
 
-using namespace transformers;
+using namespace tensor;
 
 static void usage(const char* name) {
     std::cerr << "usage: " << name << " fetch <uri> [--no-progress]\n\n"

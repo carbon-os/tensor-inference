@@ -1,13 +1,13 @@
-#include <transformers/models/gemma/gemma_model.hpp>
-#include <transformers/backend/ops.hpp>
+#include <tensor/models/gemma/gemma_model.hpp>
+#include <tensor/backend/ops.hpp>
 
 #include <cuda_runtime.h>
 #include <iostream>
 #include <cmath>
 
-namespace ops = transformers::backend::ops;
+namespace ops = tensor::backend::ops;
 
-namespace transformers::models::gemma {
+namespace tensor::models::gemma {
 
 static backend::Tensor load_weight(const parser::WeightMap& wm, const std::string& name, const backend::Device& device) {
     return backend::Tensor::from_view(wm.tensor(name), device);
@@ -128,4 +128,4 @@ backend::Tensor GemmaModel::forward(const std::vector<int32_t>& input_ids, KVCac
     return logits;
 }
 
-} // namespace transformers::models::gemma
+} // namespace tensor::models::gemma

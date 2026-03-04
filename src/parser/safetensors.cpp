@@ -1,4 +1,4 @@
-#include <transformers/parser/safetensors.hpp>
+#include <tensor/parser/safetensors.hpp>
 
 #include "detail/mmap.hpp"
 
@@ -17,7 +17,7 @@
 namespace fs = std::filesystem;
 using json   = nlohmann::json;
 
-namespace transformers::parser {
+namespace tensor::parser {
 
 // ─────────────────────────────────────────────────────────────
 //  Dtype string -> DType  (safetensors canonical strings)
@@ -420,4 +420,4 @@ SafeTensors::tensors() const {
     return out;
 }
 
-} // namespace transformers::parser
+} // namespace tensor::parser

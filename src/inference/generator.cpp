@@ -1,10 +1,10 @@
-#include <transformers/inference/generator.hpp>
+#include <tensor/inference/generator.hpp>
 
 #include <algorithm>
 #include <stdexcept>
 #include <string>
 
-namespace transformers::inference {
+namespace tensor::inference {
 
 Generator::Generator(std::unique_ptr<ModelIface> iface,
                      const tokenizer::Tokenizer& tok,
@@ -74,4 +74,4 @@ done:
     return result;
 }
 
-} // namespace transformers::inference
+} // namespace tensor::inference
