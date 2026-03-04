@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.21)
 
-# Project name updated to match the repository/tool name
+# Project name updated to tensor_inference
 project(tensor_inference VERSION 0.1.0 LANGUAGES CXX CUDA)
 
 set(CMAKE_CXX_STANDARD 20)
@@ -11,6 +11,7 @@ set(CMAKE_CUDA_STANDARD_REQUIRED ON)
 
 # ─────────────────────────────────────────────────────────────
 #  System / vcpkg-managed dependencies
+#  Expects CMAKE_TOOLCHAIN_FILE to be passed or VCPKG_ROOT set
 # ─────────────────────────────────────────────────────────────
 
 find_package(OpenSSL        REQUIRED)
@@ -25,8 +26,6 @@ find_package(CUDAToolkit    REQUIRED)
 add_library(tensor_core INTERFACE)
 add_library(tensor::core ALIAS tensor_core)
 target_include_directories(tensor_core INTERFACE
-    # Adds the root 'include' directory so headers can be included 
-    # via <tensor/header.hpp> (assuming include/tensor structure)
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
     $<INSTALL_INTERFACE:include>
 )
@@ -169,7 +168,7 @@ target_link_libraries(tensor_inference_lib
 option(TENSOR_BUILD_TOOLS "Build developer tools" OFF)
 
 if(TENSOR_BUILD_TOOLS)
-    # Helper for consistency
+    # Helper macro for consistency
     macro(link_tensor_deps target_name)
         target_link_libraries(${target_name} PRIVATE
             tensor::parser
@@ -194,7 +193,7 @@ if(TENSOR_BUILD_TOOLS)
 
     add_executable(run_gemma tools/run_gemma.cpp)
     link_tensor_deps(run_gemma)
-    
+
     add_executable(run_mistral tools/run_mistral.cpp)
     link_tensor_deps(run_mistral)
 endif()

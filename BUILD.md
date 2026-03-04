@@ -1,62 +1,57 @@
-# Building libtransformers
-
+# Building tensor_inference
 
 ## Requirements
 
-- CMake 3.21+
-- C++20 compiler (GCC 11+, Clang 14+, MSVC 19.30+)
-- CUDA Toolkit 11.8+ with a Volta or newer GPU (sm_70+)
-- Internet access on first build (FetchContent pulls nlohmann/json and cpp-httplib)
+* CMake 3.21+
+* C++20 compiler (GCC 11+, Clang 14+, MSVC 19.30+)
+* CUDA Toolkit 11.8+ with a Volta or newer GPU (sm_70+)
+* Internet access on first build (vcpkg pulls dependencies)
+
+## Dependencies (Local vcpkg)
+
+This project manages dependencies locally using a vendored `vcpkg` instance. You do not need a system-wide vcpkg installation.
+
+1. **Install system prerequisites:**
+```bash
+sudo apt-get update && sudo apt-get install -y \
+    build-essential \
+    pkg-config \
+    curl \
+    zip \
+    unzip \
+    tar \
+    linux-libc-dev
+
+```
 
 
-For Framework support:
- - embeddings
+2. **Clone and bootstrap vcpkg locally:**
+From the root of the project:
+```bash
+git clone --depth 1 https://github.com/microsoft/vcpkg.git
+./vcpkg/bootstrap-vcpkg.sh
 
-Model Support TODO: 
- - deekseek
- - OSS
- - bunch of other ones 
+```
+
+
+3. **Install libraries:**
+```bash
+./vcpkg/vcpkg install curl nlohmann-json openssl
+
+```
+
 
 
 ## Build
 
-```bash
-cmake -B build
-cmake --build build
-
-```
-
-To build the developer tools and tests:
+Configure the project using the local toolchain file and build:
 
 ```bash
-
-apt-get update && apt-get install -y \
-    pkg-config \
-    linux-libc-dev \
-    build-essential \
-    make
-
-
-# 1. Clone vcpkg into a permanent home (e.g. /opt/vcpkg or ~/vcpkg)
-git clone https://github.com/microsoft/vcpkg.git ~/vcpkg
-
-# 2. Run the bootstrap script — builds the vcpkg binary
-~/vcpkg/bootstrap-vcpkg.sh
-
-# 3. Set VCPKG_ROOT so the cmake command you have works as-is
-export VCPKG_ROOT=~/vcpkg
-export PATH="$VCPKG_ROOT:$PATH"   # optional, lets you run vcpkg from anywhere
-
-
-echo 'export VCPKG_ROOT=~/vcpkg' >> ~/.bashrc
-echo 'export PATH="$VCPKG_ROOT:$PATH"' >> ~/.bashrc
-source ~/.bashrc
-
-
 cmake -B build \
-  -DCMAKE_TOOLCHAIN_FILE=$VCPKG_ROOT/scripts/buildsystems/vcpkg.cmake \
-  -DTRANSFORMERS_BUILD_TOOLS=ON
-cmake --build build
+  -DCMAKE_TOOLCHAIN_FILE=./vcpkg/scripts/buildsystems/vcpkg.cmake \
+  -DTENSOR_BUILD_TOOLS=ON
+
+cmake --build build --parallel
 
 ```
 
@@ -64,7 +59,7 @@ cmake --build build
 
 | Option | Default | Description |
 | --- | --- | --- |
-| `TRANSFORMERS_BUILD_TOOLS` | `OFF` | Build developer tools and tests |
+| `TENSOR_BUILD_TOOLS` | `OFF` | Build developer tools (`model-cli`, `run_llama`, etc.) |
 
 ## Tools
 
@@ -76,11 +71,11 @@ cmake --build build
 
 ---
 
-## Tests
+## Usage Examples
 
 ### Fetching Models
 
-libtransformers includes `model-cli` to handle downloading and verifying weights. By default, models are cached globally in `~/.cache/models/`.
+`tensor_inference` includes `model-cli` to handle downloading and verifying weights. By default, models are cached globally in `~/.cache/models/`.
 
 ```bash
 # ~17 MB  — tiny BERT, F32, fast sanity check
@@ -89,36 +84,23 @@ libtransformers includes `model-cli` to handle downloading and verifying weights
 # ~90 MB  — MiniLM, F32, wider tensor variety
 ./build/model-cli fetch hf://sentence-transformers/all-MiniLM-L6-v2
 
-# ~250 MB — OPT-125M, larger embedding table, good total_bytes stress
+# ~250 MB — OPT-125M, larger embedding table
 ./build/model-cli fetch hf://facebook/opt-125m
 
 ```
 
-Run the SafeTensors parser against the downloaded files:
+### LLaMA Inference
+
+Any LLaMA-architecture model in `.safetensors` format works.
 
 ```bash
-./build/parser_safetensors ~/.cache/models/gaunernst/bert-tiny-uncased/model.safetensors
-./build/parser_safetensors ~/.cache/models/sentence-transformers/all-MiniLM-L6-v2/model.safetensors
-./build/parser_safetensors ~/.cache/models/facebook/opt-125m/model.safetensors
-
-```
-
-### LLaMA inference
-
-Any LLaMA-architecture model in safetensors format works.
-
-```bash
-# ~2.5 GB  — LLaMA-3.2-1B, BF16, extremely fast for local iteration
+# ~2.5 GB — LLaMA-3.2-1B, BF16, extremely fast for local iteration
 # Requires a HuggingFace account and accepting the model license.
 export HF_TOKEN="hf_YOUR_TOKEN_HERE"
 ./build/model-cli fetch hf://unsloth/Llama-3.2-1B-Instruct
-
 ./build/model-cli fetch hf://Qwen/Qwen2.5-Coder-1.5B-Instruct
-
 ./build/model-cli fetch hf://unsloth/gemma-2b-it
-
 ./build/model-cli fetch hf://mistralai/Ministral-3B-instruct
-
 
 ```
 
@@ -126,17 +108,12 @@ Run a single prompt using the cached path:
 
 ```bash
 ./build/run_llama ~/.cache/models/unsloth/Llama-3.2-1B-Instruct \
-    --prompt "What is the company Google ?" \
+    --prompt "What is the company Google?" \
     --max-tokens 200 \
     --temperature 0.8
 
-./build/run_llama ~/.cache/models/Qwen/Qwen2.5-Coder-1.5B-Instruct \
-    --prompt "What is the company Google ?" \
-    --max-tokens 200 \
-    --temperature 0.8
-
-./build/run_llama ~/.cache/models/unsloth/gemma-2b-it \
-    --prompt "What is the company Google ?" \
+./build/run_qwen ~/.cache/models/Qwen/Qwen2.5-Coder-1.5B-Instruct \
+    --prompt "Write a C++ hello world." \
     --max-tokens 200 \
     --temperature 0.8
 
@@ -145,6 +122,6 @@ Run a single prompt using the cached path:
 Run interactive chat:
 
 ```bash
-./build/run_llama ~/.cache/models/unsloth/Llama-3.2-1B --chat --temperature 0.8
+./build/run_llama ~/.cache/models/unsloth/Llama-3.2-1B-Instruct --chat --temperature 0.8
 
 ```
