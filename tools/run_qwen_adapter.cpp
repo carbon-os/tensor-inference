@@ -1,19 +1,5 @@
 // ─────────────────────────────────────────────────────────────
 //  run_qwen_adapter — Qwen inference with a local tensor adapter
-//
-//  Usage:
-//    ./run_qwen_adapter <model_dir> <adapter_dir> [options]
-//
-//  Options:
-//    --prompt    "text"    prompt string (required unless --chat)
-//    --chat                interactive chat mode
-//    --max-tokens N        max new tokens        (default 256)
-//    --temperature F       sampling temperature  (default 1.0)
-//    --top-p F             nucleus p             (default 0.95)
-//    --greedy              force greedy decoding
-//    --seed N              random seed
-//    --device N            CUDA device index     (default 0)
-//    --max-seq N           KV cache length       (default 4096)
 // ─────────────────────────────────────────────────────────────
 
 #include <tensor/adapter/adapter_loader.hpp>
@@ -43,6 +29,7 @@ struct Args {
     std::string model_dir;
     std::string adapter_dir;
     std::string prompt;
+    std::string system_prompt;  // optional override; empty = tokenizer default
     bool        chat        = false;
     std::size_t max_tokens  = 256;
     float       temperature = 1.0f;
@@ -57,6 +44,7 @@ static void usage(const char* name) {
     std::cerr
         << "usage: " << name << " <model_dir> <adapter_dir> [options]\n"
         << "  --prompt    TEXT    prompt (required unless --chat)\n"
+        << "  --system    TEXT    system prompt override\n"
         << "  --chat              interactive chat mode\n"
         << "  --max-tokens N      max new tokens (default 256)\n"
         << "  --temperature F     temperature (default 1.0)\n"
@@ -83,15 +71,16 @@ static Args parse_args(int argc, char** argv) {
             }
             return argv[i];
         };
-        if      (flag == "--prompt")      a.prompt      = next();
-        else if (flag == "--chat")        a.chat        = true;
-        else if (flag == "--max-tokens")  a.max_tokens  = std::stoull(next());
-        else if (flag == "--temperature") a.temperature = std::stof(next());
-        else if (flag == "--top-p")       a.top_p       = std::stof(next());
-        else if (flag == "--greedy")      a.greedy      = true;
-        else if (flag == "--seed")        a.seed        = std::stoull(next());
-        else if (flag == "--device")      a.device_idx  = std::stoi(next());
-        else if (flag == "--max-seq")     a.max_seq     = std::stoull(next());
+        if      (flag == "--prompt")      a.prompt       = next();
+        else if (flag == "--system")      a.system_prompt = next();
+        else if (flag == "--chat")        a.chat         = true;
+        else if (flag == "--max-tokens")  a.max_tokens   = std::stoull(next());
+        else if (flag == "--temperature") a.temperature  = std::stof(next());
+        else if (flag == "--top-p")       a.top_p        = std::stof(next());
+        else if (flag == "--greedy")      a.greedy       = true;
+        else if (flag == "--seed")        a.seed         = std::stoull(next());
+        else if (flag == "--device")      a.device_idx   = std::stoi(next());
+        else if (flag == "--max-seq")     a.max_seq      = std::stoull(next());
         else { std::cerr << "unknown flag: " << flag << "\n"; std::exit(1); }
     }
 
@@ -131,11 +120,10 @@ int main(int argc, char** argv) {
                   << "  hidden="  << config.hidden_size()
                   << "  dtype="   << config.torch_dtype() << "\n";
 
-        auto t0 = std::chrono::steady_clock::now();
-
+        auto t0   = std::chrono::steady_clock::now();
         auto base = models::qwen::QwenModel::load(weights, config, device);
+        auto t1   = std::chrono::steady_clock::now();
 
-        auto t1 = std::chrono::steady_clock::now();
         std::cout << "[base]    loaded in "
                   << std::chrono::duration<double, std::milli>(t1 - t0).count()
                   << " ms  (" << (weights.total_bytes() >> 20) << " MiB)\n";
@@ -145,14 +133,13 @@ int main(int argc, char** argv) {
         std::cout << "[adapter] " << args.adapter_dir << "\n";
 
         auto t2 = std::chrono::steady_clock::now();
-
         auto adapter_weights = adapter::AdapterLoader::load(
             args.adapter_dir,
             "qwen2",
             config.num_hidden_layers(),
             device);
-
         auto t3 = std::chrono::steady_clock::now();
+
         std::cout << "[adapter] loaded in "
                   << std::chrono::duration<double, std::milli>(t3 - t2).count()
                   << " ms\n";
@@ -175,7 +162,7 @@ int main(int argc, char** argv) {
             top_p.temperature = args.temperature;
             top_p.p           = args.top_p;
             top_p.seed        = args.seed;
-            sampler = top_p;
+            sampler           = top_p;
         }
 
         const inference::GenerateOptions base_opts {
@@ -188,18 +175,33 @@ int main(int argc, char** argv) {
             },
         };
 
-        // ── 6. run ────────────────────────────────────────────
+        // ── 6. helper: build ChatML prompt string ─────────────
+        //
+        // apply_chat_template() injects the default system turn automatically
+        // when the message list has no system entry, exactly mirroring what
+        // dataset-format wrote during training.
+        auto make_prompt = [&](const std::string& user_text) -> std::string {
+            std::vector<tokenizer::Tokenizer::Message> msgs;
+            if (!args.system_prompt.empty())
+                msgs.push_back({"system", args.system_prompt});
+            msgs.push_back({"user", user_text});
+            return tokenizer.apply_chat_template(msgs, /*add_generation_prompt=*/true);
+        };
+
+        // ── 7. run ────────────────────────────────────────────
 
         if (!args.chat) {
-            std::cout << "\n--- output ---\n" << args.prompt;
+            // Wrap the raw --prompt in the ChatML template so the adapter fires.
+            const std::string formatted = make_prompt(args.prompt);
 
-            auto ids = tokenizer.encode(args.prompt, true);
+            std::cout << "\n--- output ---\n";
 
+            auto ids    = tokenizer.encode(formatted, /*add_special_tokens=*/false);
             auto ts     = std::chrono::steady_clock::now();
             auto result = gen.generate(ids, base_opts);
             auto te     = std::chrono::steady_clock::now();
 
-            double ms       = std::chrono::duration<double, std::milli>(te - ts).count();
+            double ms        = std::chrono::duration<double, std::milli>(te - ts).count();
             double tok_per_s = result.tokens_generated / (ms / 1000.0);
 
             std::cout << "\n--- stats ---\n"
@@ -209,6 +211,9 @@ int main(int argc, char** argv) {
 
         } else {
             std::vector<tokenizer::Tokenizer::Message> history;
+            if (!args.system_prompt.empty())
+                history.push_back({"system", args.system_prompt});
+
             std::cout << "[chat]  type 'quit' to exit\n\n";
 
             while (true) {
@@ -219,21 +224,22 @@ int main(int argc, char** argv) {
 
                 history.push_back({"user", line});
 
-                std::string prompt = tokenizer.apply_chat_template(history, true);
-                auto        ids    = tokenizer.encode(prompt, false);
+                std::string prompt = tokenizer.apply_chat_template(
+                    history, /*add_generation_prompt=*/true);
+                auto ids = tokenizer.encode(prompt, /*add_special_tokens=*/false);
 
                 std::cout << "assistant: " << std::flush;
 
                 std::string assistant_reply;
-                auto opts = base_opts;
-                opts.on_token = [&](int32_t tok) -> bool {
+                auto opts      = base_opts;
+                opts.on_token  = [&](int32_t tok) -> bool {
                     std::string piece = tokenizer.decode({tok}, true);
                     std::cout << piece << std::flush;
                     assistant_reply += piece;
                     return true;
                 };
 
-                auto result = gen.generate(ids, opts);
+                gen.generate(ids, opts);
                 std::cout << "\n\n";
 
                 history.push_back({"assistant", assistant_reply});

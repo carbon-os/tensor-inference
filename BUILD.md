@@ -95,6 +95,7 @@ export HF_TOKEN="hf_YOUR_TOKEN_HERE"
 ./build/model-cli fetch hf://Qwen/Qwen2.5-Coder-1.5B-Instruct
 ./build/model-cli fetch hf://unsloth/gemma-2b-it
 ./build/model-cli fetch hf://mistralai/Ministral-3B-instruct
+./build/model-cli fetch hf://Qwen/Qwen2.5-0.5B
 ```
 
 Run a single prompt using the cached path:
@@ -144,7 +145,7 @@ Run interactive chat with an adapter:
 ```bash
 ./build/run_qwen_adapter \
     ~/.cache/models/Qwen/Qwen2.5-0.5B \
-    ./adapters/qwen2.5-0.5b-golang-gin \
+    ./adapters/gomarkdown \
     --chat \
     --temperature 0.7
 ```
@@ -153,8 +154,8 @@ Greedy decoding (useful for deterministic output during evaluation):
 ```bash
 ./build/run_qwen_adapter \
     ~/.cache/models/Qwen/Qwen2.5-0.5B \
-    ./adapters/qwen2.5-0.5b-golang-gin \
-    --prompt "Write a Gin route handler that returns JSON" \
-    --max-tokens 256 \
+    /root/adapters/gomarkdown \
+    --prompt "show me an example of golang github.com/gomarkdown/markdown" \
+    --max-tokens 4000 \
     --greedy
 ```
